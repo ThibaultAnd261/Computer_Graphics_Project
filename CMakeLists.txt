@@ -17,6 +17,7 @@ link_directories(${GLFW_LIBRARY_DIRS})
 
 add_executable(3DViewer
     src/main.cpp
+    src/Shader.cpp
 )
 
 # Link avec OpenGL, GLFW et GLEW

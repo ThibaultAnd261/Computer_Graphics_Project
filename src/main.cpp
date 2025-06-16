@@ -40,6 +40,8 @@ int main() {
         return -1;
     }
 
+    glEnable(GL_DEPTH_TEST); // Activation du test de profondeur
+
     // Rendu en couleurs sRGB 
     glEnable(GL_FRAMEBUFFER_SRGB);
 
