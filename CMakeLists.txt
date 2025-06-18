@@ -26,6 +26,7 @@ endif()
 add_executable(3DViewer
     src/main.cpp
     src/Shader.cpp
+    external/tinyobjloader/tiny_obj_loader.cc
 )
 
 # Link avec OpenGL, GLFW et GLEW
