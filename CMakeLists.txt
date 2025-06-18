@@ -15,6 +15,14 @@ pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS})
 link_directories(${GLFW_LIBRARY_DIRS})
 
+# Ajout de GLM (header-only)
+find_path(GLM_INCLUDE_DIR glm/glm.hpp)
+if (GLM_INCLUDE_DIR)
+    include_directories(${GLM_INCLUDE_DIR})
+else()
+    message(FATAL_ERROR "GLM not found! Please install glm (brew or pacman).")
+endif()
+
 add_executable(3DViewer
     src/main.cpp
     src/Shader.cpp
