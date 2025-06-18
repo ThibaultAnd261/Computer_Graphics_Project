@@ -75,7 +75,9 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
+    // Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
+    // Shader phong
+    Shader shader("../shaders/phong.vert", "../shaders/phong.frag");
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
@@ -111,6 +113,11 @@ int main() {
             vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
             vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
             vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
+
+            // Normale
+            vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
+            vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
+            vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
         }
     }
 
@@ -121,8 +128,12 @@ int main() {
     glBindVertexArray(vaoHouse);
     glBindBuffer(GL_ARRAY_BUFFER, objVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    // Normale
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -145,6 +156,10 @@ int main() {
             verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 0]);
             verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 1]);
             verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 2]);
+
+            verticesPlante1.push_back(attribPlante1.normals[3 * index.normal_index + 0]);
+            verticesPlante1.push_back(attribPlante1.normals[3 * index.normal_index + 1]);
+            verticesPlante1.push_back(attribPlante1.normals[3 * index.normal_index + 2]);
         }
     }
 
@@ -154,8 +169,12 @@ int main() {
     glBindVertexArray(vaoPlante1);
     glBindBuffer(GL_ARRAY_BUFFER, vboPlante1);
     glBufferData(GL_ARRAY_BUFFER, verticesPlante1.size() * sizeof(float), verticesPlante1.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    // Normale
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -178,6 +197,10 @@ int main() {
             verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 0]);
             verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 1]);
             verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 2]);
+
+            verticesPlante2.push_back(attribPlante2.normals[3 * index.normal_index + 0]);
+            verticesPlante2.push_back(attribPlante2.normals[3 * index.normal_index + 1]);
+            verticesPlante2.push_back(attribPlante2.normals[3 * index.normal_index + 2]);
         }
     }
 
@@ -187,8 +210,12 @@ int main() {
     glBindVertexArray(vaoPlante2);
     glBindBuffer(GL_ARRAY_BUFFER, vboPlante2);
     glBufferData(GL_ARRAY_BUFFER, verticesPlante2.size() * sizeof(float), verticesPlante2.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    // Normale
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -198,7 +225,9 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.use();
-        shader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);
+        shader.setVec3("lightPos", 2.0f, 2.0f, 2.0f);
+        shader.setVec3("viewPos", 0.0f, 0.0f, 2.5f); // même que ta caméra
+        shader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);    // couleur objet
         shader.setMat4("model", glm::value_ptr(model));
         shader.setMat4("view", glm::value_ptr(view));
         shader.setMat4("projection", glm::value_ptr(projection));
