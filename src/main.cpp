@@ -78,17 +78,15 @@ int main() {
     Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
 
     glm::mat4 model = glm::mat4(1.0f);
-    // model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
-    // model = glm::scale(model, glm::vec3(0.1f));
     model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
-    model = glm::scale(model, glm::vec3(0.001f));
+    model = glm::scale(model, glm::vec3(0.008f));
 
 
     glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.3f, -2.5f));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f / 600.f, 0.1f, 100.0f);
 
 
-    // Chargement .obj avec TinyObjLoader
+    // Chargement snow_covered_cottage .obj avec TinyObjLoader
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -98,7 +96,7 @@ int main() {
     config.triangulate = true;
 
     tinyobj::ObjReader reader;
-    if (!reader.ParseFromFile("../models/cottage_obj.obj", config)) {
+    if (!reader.ParseFromFile("../models/snow_covered_cottage_obj.obj", config)) {
         std::cerr << "Erreur TinyObjLoader : " << reader.Error() << std::endl;
         return -1;
     }
@@ -117,12 +115,78 @@ int main() {
     }
 
     // VAO/VBO pour l'objet chargé
-    GLuint objVAO, objVBO;
-    glGenVertexArrays(1, &objVAO);
+    GLuint vaoHouse, objVBO;
+    glGenVertexArrays(1, &vaoHouse);
     glGenBuffers(1, &objVBO);
-    glBindVertexArray(objVAO);
+    glBindVertexArray(vaoHouse);
     glBindBuffer(GL_ARRAY_BUFFER, objVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+
+    // Chargement .obj plante 1
+    tinyobj::attrib_t attribPlante1;
+    std::vector<tinyobj::shape_t> shapesPlante1;
+    std::vector<tinyobj::material_t> materialsPlante1;
+    tinyobj::ObjReader readerPlante1;
+    if (!readerPlante1.ParseFromFile("../models/eb_house_plant_02.obj", config)) {
+        std::cerr << "Erreur chargement plante 1 : " << readerPlante1.Error() << std::endl;
+        return -1;
+    }
+    attribPlante1 = readerPlante1.GetAttrib();
+    shapesPlante1 = readerPlante1.GetShapes();
+
+    std::vector<float> verticesPlante1;
+    for (const auto& shape : shapesPlante1) {
+        for (const auto& index : shape.mesh.indices) {
+            verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 0]);
+            verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 1]);
+            verticesPlante1.push_back(attribPlante1.vertices[3 * index.vertex_index + 2]);
+        }
+    }
+
+    GLuint vaoPlante1, vboPlante1;
+    glGenVertexArrays(1, &vaoPlante1);
+    glGenBuffers(1, &vboPlante1);
+    glBindVertexArray(vaoPlante1);
+    glBindBuffer(GL_ARRAY_BUFFER, vboPlante1);
+    glBufferData(GL_ARRAY_BUFFER, verticesPlante1.size() * sizeof(float), verticesPlante1.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+
+    // Chargement .obj plante 2
+    tinyobj::attrib_t attribPlante2;
+    std::vector<tinyobj::shape_t> shapesPlante2;
+    std::vector<tinyobj::material_t> materialsPlante2;
+    tinyobj::ObjReader readerPlante2;
+    if (!readerPlante2.ParseFromFile("../models/eb_house_plant_03.obj", config)) {
+        std::cerr << "Erreur chargement plante 2 : " << readerPlante2.Error() << std::endl;
+        return -1;
+    }
+    attribPlante2 = readerPlante2.GetAttrib();
+    shapesPlante2 = readerPlante2.GetShapes();
+
+    std::vector<float> verticesPlante2;
+    for (const auto& shape : shapesPlante2) {
+        for (const auto& index : shape.mesh.indices) {
+            verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 0]);
+            verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 1]);
+            verticesPlante2.push_back(attribPlante2.vertices[3 * index.vertex_index + 2]);
+        }
+    }
+
+    GLuint vaoPlante2, vboPlante2;
+    glGenVertexArrays(1, &vaoPlante2);
+    glGenBuffers(1, &vboPlante2);
+    glBindVertexArray(vaoPlante2);
+    glBindBuffer(GL_ARRAY_BUFFER, vboPlante2);
+    glBufferData(GL_ARRAY_BUFFER, verticesPlante2.size() * sizeof(float), verticesPlante2.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -139,13 +203,29 @@ int main() {
         shader.setMat4("view", glm::value_ptr(view));
         shader.setMat4("projection", glm::value_ptr(projection));
 
-        // Maison codée en dur
-        // glBindVertexArray(VAO);
-        // glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // Objet maison chargé depuis .obj
-        glBindVertexArray(objVAO);
+        // Cottage 3D
+        glm::mat4 modelMaison = glm::translate(glm::mat4(1.0f), glm::vec3(0.f, -0.5f, 0.f));
+        modelMaison = glm::scale(modelMaison, glm::vec3(0.008f));
+        shader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);
+        shader.setMat4("model", glm::value_ptr(modelMaison));
+        glBindVertexArray(vaoHouse);
         glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 3);
+
+        // Plante1
+        glm::mat4 modelPlante1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.f, -0.5f, 0.f));
+        modelPlante1 = glm::scale(modelPlante1, glm::vec3(0.01f));
+        shader.setVec3("objectColor", 0.2f, 0.8f, 0.3f);
+        shader.setMat4("model", glm::value_ptr(modelPlante1));
+        glBindVertexArray(vaoPlante1);
+        glDrawArrays(GL_TRIANGLES, 0, verticesPlante1.size() / 3);
+
+        // Plante2
+        glm::mat4 modelPlante2 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.f, -0.5f, 0.f));
+        modelPlante2 = glm::scale(modelPlante2, glm::vec3(0.01f));
+        shader.setVec3("objectColor", 0.2f, 0.8f, 0.3f);
+        shader.setMat4("model", glm::value_ptr(modelPlante2));
+        glBindVertexArray(vaoPlante2);
+        glDrawArrays(GL_TRIANGLES, 0, verticesPlante2.size() / 3);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
