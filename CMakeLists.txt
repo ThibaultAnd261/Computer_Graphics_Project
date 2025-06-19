@@ -3,49 +3,44 @@ project(3DViewer)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Définir le chemin vers GLEW installé via Homebrew
-set(GLEW_ROOT "/opt/homebrew/opt/glew")
-
-# Inclure les headers et libs de GLEW et GLFW
-include_directories(${GLEW_ROOT}/include)
-link_directories(${GLEW_ROOT}/lib)
-
+# Trouver les dépendances avec pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
-include_directories(${GLFW_INCLUDE_DIRS})
-link_directories(${GLFW_LIBRARY_DIRS})
+pkg_search_module(GLEW REQUIRED glew)
 
-# Ajout de GLM (header-only)
+# Include
+include_directories(
+    ${GLFW_INCLUDE_DIRS}
+    ${GLEW_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/external/tinyobjloader
+)
+
+# Link
+link_directories(
+    ${GLFW_LIBRARY_DIRS}
+    ${GLEW_LIBRARY_DIRS}
+)
+
+# GLM (header only)
 find_path(GLM_INCLUDE_DIR glm/glm.hpp)
 if (GLM_INCLUDE_DIR)
     include_directories(${GLM_INCLUDE_DIR})
 else()
-    message(FATAL_ERROR "GLM not found! Please install glm (brew or pacman).")
+    message(FATAL_ERROR "GLM not found! Install with: pacman -S mingw-w64-x86_64-glm")
 endif()
 
+# Fichiers sources
 add_executable(3DViewer
     src/main.cpp
     src/Shader.cpp
+    src/Camera.cpp
     external/tinyobjloader/tiny_obj_loader.cc
 )
 
-# Link avec OpenGL, GLFW et GLEW
-if (APPLE)
-    target_link_libraries(3DViewer
-        ${GLFW_LIBRARIES}
-        GLEW
-        "-framework OpenGL"
-    )
-elseif (WIN32)
-    target_link_libraries(3DViewer
-        ${GLFW_LIBRARIES}
-        glew32
-        opengl32
-    )
+# Link libs selon OS
+if (WIN32)
+    target_link_libraries(3DViewer ${GLFW_LIBRARIES} ${GLEW_LIBRARIES} opengl32)
 else()
-    target_link_libraries(3DViewer
-        ${GLFW_LIBRARIES}
-        GLEW
-        GL
-    )
+    target_link_libraries(3DViewer ${GLFW_LIBRARIES} ${GLEW_LIBRARIES} GL)
 endif()
