@@ -18,6 +18,9 @@ glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
 
 float deltaTime = 0.0f; // temps entre deux frames
 float lastFrame = 0.0f;
+float lastX = 400.0f; // position souris
+float lastY = 300.0f; // position souris
+bool firstMouse = true; // pour éviter le saut de la souris
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
@@ -36,6 +39,20 @@ void processInput(GLFWwindow *window) {
         camera.ProcessKeyboard(GLFW_KEY_D, deltaTime);
 }
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) { // pour éviter le saut de la souris
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // Invertir l'axe Y
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
 
 
 int main() {
@@ -59,6 +76,8 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     GLenum glewStatus = glewInit();
