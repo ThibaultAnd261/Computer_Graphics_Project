@@ -16,6 +16,14 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/external/tinyobjloader
 )
 
+# Include ImGui
+include_directories(${CMAKE_SOURCE_DIR}/external/imgui)
+file(GLOB IMGUI_SOURCES
+    external/imgui/*.cpp
+    external/imgui/backends/imgui_impl_glfw.cpp
+    external/imgui/backends/imgui_impl_opengl3.cpp
+)
+
 # Link
 link_directories(
     ${GLFW_LIBRARY_DIRS}
@@ -35,7 +43,9 @@ add_executable(3DViewer
     src/main.cpp
     src/Shader.cpp
     src/Camera.cpp
+    src/mat4.cpp
     external/tinyobjloader/tiny_obj_loader.cc
+    ${IMGUI_SOURCES}
 )
 
 # Link libs selon OS

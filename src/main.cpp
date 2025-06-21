@@ -11,6 +11,15 @@
 #include "../include/Shader.hpp"
 #include "../include/Camera.hpp"
 #include "../external/tinyobjloader/tiny_obj_loader.h"
+#include "../include/mat4.hpp"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+GLuint fbo, fboTexture, fboDepth;
+GLuint quadVAO, quadVBO;
+int postEffect = 0;
+bool showCursor = true;
 
 glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -40,18 +49,21 @@ void processInput(GLFWwindow *window) {
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-    if (firstMouse) { // pour éviter le saut de la souris
+    if (firstMouse) {
         lastX = xpos;
         lastY = ypos;
         firstMouse = false;
+        return;
     }
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // Invertir l'axe Y
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos;
+        camera.ProcessMouseMovement(xoffset, yoffset);
+    }
+
     lastX = xpos;
     lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 
@@ -76,11 +88,59 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     GLenum glewStatus = glewInit();
+
+    // === ImGui Init ===
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+
+    // === FBO + quad init ===
+    int width = 800, height = 600;
+
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glGenTextures(1, &fboTexture);
+    glBindTexture(GL_TEXTURE_2D, fboTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fboTexture, 0);
+
+    glGenTextures(1, &fboDepth);
+    glBindTexture(GL_TEXTURE_2D, fboDepth);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, fboDepth, 0);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    float quadVertices[] = {
+        -1.f,  1.f,  0.0f, 1.0f,
+        -1.f, -1.f,  0.0f, 0.0f,
+         1.f,  1.f,  1.0f, 1.0f,
+         1.f, -1.f,  1.0f, 0.0f
+    };
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+
     if (glewStatus != GLEW_OK) {
         std::cerr << "Erreur GLEW : " << glewGetErrorString(glewStatus) << "\n";
         return -1;
@@ -262,6 +322,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    mat4 worldMatrix;
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -270,10 +331,17 @@ int main() {
 
         processInput(window);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glViewport(0, 0, 800, 600);
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.use();
+        GLuint worldLoc = glGetUniformLocation(shader.ID, "WorldMatrix");
+        glUniformMatrix4fv(worldLoc, 1, GL_FALSE, worldMatrix.data.data());
 
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f / 600.f, 0.1f, 100.0f);
@@ -309,11 +377,47 @@ int main() {
         glBindVertexArray(vaoPlante2);
         glDrawArrays(GL_TRIANGLES, 0, verticesPlante2.size() / 3);
 
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Post-processing");
+        ImGui::Text("Choix du shader :");
+
+        ImGui::RadioButton("Aucun", &postEffect, 0);
+        ImGui::RadioButton("Grayscale", &postEffect, 1);
+        ImGui::RadioButton("Inversion", &postEffect, 2);
+        ImGui::RadioButton("Sépia", &postEffect, 3);
+
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, 800, 600);
+        glDisable(GL_DEPTH_TEST);
+        glClearColor(1.0, 1.0, 1.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        Shader postShader("../shaders/post.vert", "../shaders/post.frag");
+        postShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fboTexture);
+        postShader.setInt("screenTexture", 0);
+        postShader.setInt("postEffect", postEffect);
+        glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
+
     }
 
     glfwDestroyWindow(window);
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwTerminate();
     return 0;
 }
