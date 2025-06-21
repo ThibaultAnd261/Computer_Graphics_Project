@@ -16,6 +16,9 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 GLuint fbo, fboTexture, fboDepth;
 GLuint quadVAO, quadVBO;
 int postEffect = 0;
@@ -64,6 +67,49 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
     lastX = xpos;
     lastY = ypos;
+}
+
+GLuint loadTexture(const char* path) {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    int w, h, nc;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load(path, &w, &h, &nc, 0);
+    if (!data) {
+        std::cout << "Erreur chargement texture : " << path << std::endl;
+        return 0;
+    }
+    GLenum format = (nc==3) ? GL_SRGB : GL_SRGB_ALPHA;
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, (nc==3?GL_RGB:GL_RGBA), GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    stbi_image_free(data);
+    return textureID;
+}
+
+GLuint loadCubemap(const std::vector<std::string>& faces) {
+    GLuint texID;
+    glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
+    int w, h, nc;
+    for (int i = 0; i < (int)faces.size(); ++i) {
+        unsigned char *data = stbi_load(faces[i].c_str(), &w, &h, &nc, 0);
+        if (!data) std::cout << "Erreur cubemap face : " << faces[i] << std::endl;
+        else {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_SRGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    return texID;
 }
 
 
@@ -180,6 +226,9 @@ int main() {
     // Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
     // Shader phong
     Shader shader("../shaders/phong.vert", "../shaders/phong.frag");
+    Shader simpleShader("../shaders/simple.vert", "../shaders/simple.frag");
+    Shader texturedShader("../shaders/textured.vert", "../shaders/textured.frag");
+    Shader envmapShader("../shaders/envmap.vert", "../shaders/envmap.frag");
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
@@ -324,6 +373,18 @@ int main() {
 
     mat4 worldMatrix;
 
+    GLuint texPlante1 = loadTexture("../textures/plante.jpg");
+
+    std::vector<std::string> faces = {
+        "../textures/skybox/negx.jpg",
+        "../textures/skybox/negy.jpg",
+        "../textures/skybox/negz.jpg",
+        "../textures/skybox/posx.jpg",
+        "../textures/skybox/posy.jpg",
+        "../textures/skybox/posz.jpg"
+    };
+    GLuint cubemapID = loadCubemap(faces);
+
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -334,46 +395,64 @@ int main() {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glViewport(0, 0, 800, 600);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_FRAMEBUFFER_SRGB);
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        shader.use();
-        GLuint worldLoc = glGetUniformLocation(shader.ID, "WorldMatrix");
-        glUniformMatrix4fv(worldLoc, 1, GL_FALSE, worldMatrix.data.data());
 
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f / 600.f, 0.1f, 100.0f);
-        
-        shader.setMat4("view", glm::value_ptr(view));
-        shader.setMat4("projection", glm::value_ptr(projection));
-        shader.setVec3("lightPos", 2.0f, 2.0f, 2.0f);
-        shader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
-        shader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);    // couleur objet
-        shader.setMat4("model", glm::value_ptr(model));
 
-        // Cottage 3D
+        // === Maison (Shader Couleur Simple) ===
+        simpleShader.use();
+        GLuint worldLocMaison = glGetUniformLocation(simpleShader.ID, "WorldMatrix");
+        glUniformMatrix4fv(worldLocMaison, 1, GL_FALSE, worldMatrix.data.data());
+        simpleShader.setMat4("view", glm::value_ptr(view));
+        simpleShader.setMat4("projection", glm::value_ptr(projection));
+        simpleShader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);
+
         glm::mat4 modelMaison = glm::translate(glm::mat4(1.0f), glm::vec3(0.f, -0.5f, 0.f));
         modelMaison = glm::scale(modelMaison, glm::vec3(0.008f));
-        shader.setVec3("objectColor", 0.8f, 0.5f, 0.2f);
-        shader.setMat4("model", glm::value_ptr(modelMaison));
+        simpleShader.setMat4("model", glm::value_ptr(modelMaison));
+
         glBindVertexArray(vaoHouse);
         glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 3);
 
-        // Plante1
+        // === Plante 1 (Shader Texturé) ===
+        texturedShader.use();
+        GLuint worldLocPlante1 = glGetUniformLocation(texturedShader.ID, "WorldMatrix");
+        glUniformMatrix4fv(worldLocPlante1, 1, GL_FALSE, worldMatrix.data.data());
+
         glm::mat4 modelPlante1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.f, -0.5f, 0.f));
         modelPlante1 = glm::scale(modelPlante1, glm::vec3(0.01f));
-        shader.setVec3("objectColor", 0.2f, 0.8f, 0.3f);
-        shader.setMat4("model", glm::value_ptr(modelPlante1));
+        texturedShader.setMat4("model", glm::value_ptr(modelPlante1));
+
+        texturedShader.setMat4("view", glm::value_ptr(view));
+        texturedShader.setMat4("projection", glm::value_ptr(projection));
+        texturedShader.setMat4("model", glm::value_ptr(modelPlante1));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texPlante1);
+        texturedShader.setInt("diffuseMap", 0);
+
         glBindVertexArray(vaoPlante1);
         glDrawArrays(GL_TRIANGLES, 0, verticesPlante1.size() / 3);
 
-        // Plante2
+        // === Plante 2 (Shader Environment Map) ===
+        envmapShader.use();
+        GLuint worldLocPlante2 = glGetUniformLocation(envmapShader.ID, "WorldMatrix");
+        glUniformMatrix4fv(worldLocPlante2, 1, GL_FALSE, worldMatrix.data.data());
+        envmapShader.setMat4("view", glm::value_ptr(view));
+        envmapShader.setMat4("projection", glm::value_ptr(projection));
+        envmapShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
+
         glm::mat4 modelPlante2 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.f, -0.5f, 0.f));
         modelPlante2 = glm::scale(modelPlante2, glm::vec3(0.01f));
-        shader.setVec3("objectColor", 0.2f, 0.8f, 0.3f);
-        shader.setMat4("model", glm::value_ptr(modelPlante2));
+        envmapShader.setMat4("model", glm::value_ptr(modelPlante2));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapID);
+        envmapShader.setInt("envMap", 0);
+
         glBindVertexArray(vaoPlante2);
         glDrawArrays(GL_TRIANGLES, 0, verticesPlante2.size() / 3);
 

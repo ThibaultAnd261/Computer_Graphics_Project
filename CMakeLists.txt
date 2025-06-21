@@ -3,34 +3,33 @@ project(3DViewer)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Trouver les dépendances avec pkg-config
+# Dépendances GLFW et GLEW via pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 pkg_search_module(GLEW REQUIRED glew)
 
-# Include
+# Inclusions
 include_directories(
     ${GLFW_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/external/tinyobjloader
+    ${CMAKE_SOURCE_DIR}/external/imgui
+    ${CMAKE_SOURCE_DIR}/external/imgui/backends
 )
 
-# Include ImGui
-include_directories(${CMAKE_SOURCE_DIR}/external/imgui)
-file(GLOB IMGUI_SOURCES
-    external/imgui/*.cpp
+# Liste manuelle des fichiers ImGui
+set(IMGUI_SOURCES
+    external/imgui/imgui.cpp
+    external/imgui/imgui_draw.cpp
+    external/imgui/imgui_widgets.cpp
+    external/imgui/imgui_tables.cpp
+    external/imgui/imgui_demo.cpp
     external/imgui/backends/imgui_impl_glfw.cpp
     external/imgui/backends/imgui_impl_opengl3.cpp
 )
 
-# Link
-link_directories(
-    ${GLFW_LIBRARY_DIRS}
-    ${GLEW_LIBRARY_DIRS}
-)
-
-# GLM (header only)
+# GLM (header-only)
 find_path(GLM_INCLUDE_DIR glm/glm.hpp)
 if (GLM_INCLUDE_DIR)
     include_directories(${GLM_INCLUDE_DIR})
@@ -38,7 +37,7 @@ else()
     message(FATAL_ERROR "GLM not found! Install with: pacman -S mingw-w64-x86_64-glm")
 endif()
 
-# Fichiers sources
+# Exécutable
 add_executable(3DViewer
     src/main.cpp
     src/Shader.cpp
@@ -48,7 +47,7 @@ add_executable(3DViewer
     ${IMGUI_SOURCES}
 )
 
-# Link libs selon OS
+# Link selon OS
 if (WIN32)
     target_link_libraries(3DViewer ${GLFW_LIBRARIES} ${GLEW_LIBRARIES} opengl32)
 else()
